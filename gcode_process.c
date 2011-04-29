@@ -422,6 +422,24 @@ void process_gcode_command() {
         //? inserted.
         pf_unmount(&sdfile);
         break;
+
+      case 23:
+        //? --- M23: select file. ---
+        //?
+        //? This opens a file for reading. This file is valid up M22 or the
+        //? next M23.
+
+        // Filename should be already in sdbuffer.
+        result = pf_open(gcode_str_buf);
+        if (result == FR_OK) {
+          // Actually, the file name isn't stored, so we can't read it back :-)
+          sersendf_P(PSTR("Successfully opened file with %lu bytes."),
+                     sdfile.fsize);
+        }
+        else {
+          sersendf_P(PSTR("E: failed to open file (%su)"), result);
+        }
+        break;
       #endif /* SD */
 
 			case 82:

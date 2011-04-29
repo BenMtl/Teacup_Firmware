@@ -18,6 +18,7 @@
   #include "simulator.h"
 #endif
 
+
 /// current or previous gcode word
 /// for working out what to do with data just received
 uint8_t last_field = 0;
@@ -30,6 +31,12 @@ decfloat BSS read_digit;
 
 /// this is where we store all the data for the current command before we work out what to do with it
 GCODE_COMMAND BSS next_target;
+
+#ifdef SD
+  #define STR_BUF_LEN 13
+  char gcode_str_buf[STR_BUF_LEN];
+  static uint8_t str_buf_ptr = 0;
+#endif
 
 /*
 	decfloat_to_int() is the weakest subject to variable overflow. For evaluation, we assume a build room of +-1000 mm and STEPS_PER_MM_x between 1.000 and 4096. Accordingly for metric units:
@@ -117,6 +124,13 @@ void gcode_parse_char(uint8_t c) {
 					break;
 				case 'M':
 					next_target.M = read_digit.mantissa;
+          #ifdef SD
+            if (next_target.M == 23) {
+              // SD card command with a filename.
+              next_target.read_string = 1;
+              str_buf_ptr = 0;
+            }
+          #endif
 					if (DEBUG_ECHO && (debug_flags & DEBUG_ECHO))
 						serwrite_uint8(next_target.M);
 					break;
@@ -203,7 +217,10 @@ void gcode_parse_char(uint8_t c) {
 	}
 
 	// skip comments
-	if (next_target.seen_semi_comment == 0 && next_target.seen_parens_comment == 0) {
+  if (next_target.seen_semi_comment == 0 &&
+      next_target.seen_parens_comment == 0 &&
+      next_target.read_string == 0
+     ) {
 		// new field?
 		if ((c >= 'A' && c <= 'Z') || c == '*') {
 			last_field = c;
@@ -311,8 +328,21 @@ void gcode_parse_char(uint8_t c) {
           break;
       }
 		}
-	} else if ( next_target.seen_parens_comment == 1 && c == ')')
+  }
+  else if ( next_target.seen_parens_comment == 1 && c == ')')
 		next_target.seen_parens_comment = 0; // recognize stuff after a (comment)
+  else if (next_target.read_string && (c == ' ' || c == '*'))
+    next_target.read_string = 0;
+  #ifdef SD
+  // Store received filename into buffer, use it in gcode_process().
+  else if (next_target.read_string) {
+    if (str_buf_ptr < STR_BUF_LEN) {
+      gcode_str_buf[str_buf_ptr] = c;
+      str_buf_ptr++;
+      gcode_str_buf[str_buf_ptr] = '\0';
+    }
+  }
+  #endif /* SD */
 
 	if (next_target.seen_checksum == 0)
 		next_target.checksum_calculated =
@@ -371,7 +401,8 @@ void gcode_parse_char(uint8_t c) {
 			next_target.seen_P = next_target.seen_T = next_target.seen_N = \
       next_target.seen_G = next_target.seen_M = next_target.seen_checksum = \
       next_target.seen_semi_comment = next_target.seen_parens_comment = \
-      next_target.checksum_read = next_target.checksum_calculated = 0;
+      next_target.read_string = next_target.checksum_read = \
+      next_target.checksum_calculated = 0;
 		// last_field and read_digit are reset above already
 
 		if (next_target.option_all_relative) {
