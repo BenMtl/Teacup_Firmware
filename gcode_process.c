@@ -26,6 +26,8 @@
 #include	"clock.h"
 #include	"config_wrapper.h"
 #include	"home.h"
+#include "sd.h"
+
 
 /// the current tool
 uint8_t tool;
@@ -373,6 +375,54 @@ void process_gcode_command() {
 				//? Undocumented.
 				tool = next_tool;
 				break;
+
+      #ifdef SD
+      FRESULT result;
+
+      case 20:
+        //? --- M20: list SD card. ---
+        {
+          FILINFO fno;
+          DIR dir;
+
+          serial_writechar('\n');
+          result = pf_opendir(&dir, "/");
+          if (result == FR_OK) {
+            for (;;) {
+              result = pf_readdir(&dir, &fno);
+              if (result != FR_OK || fno.fname[0] == 0)
+                break;
+              serial_writestr((uint8_t *)fno.fname);
+              if (fno.fattrib & AM_DIR)
+                serial_writechar('/');
+              serial_writechar('\n');
+              delay_ms(2); // Time for sending the characters.
+            }
+          }
+          else {
+            sersendf_P(PSTR("E: failed to open dir (%su)"), result);
+          }
+        }
+
+      case 21:
+        //? --- M21: initialise SD card. ---
+        //?
+        //? Has to be done before doing any other operation, including M20.
+        result = pf_mount(&sdfile);
+        if (result != FR_OK)
+          sersendf_P(PSTR("E: SD init failed (%su)"), result);
+        break;
+
+      case 22:
+        //? --- M22: release SD card. ---
+        //?
+        //? Not mandatory. Just removing the card is fine, but results in
+        //? odd behaviour when trying to read from the card anyways. This
+        //? also makes sure SD card printing is disabled, even with the card
+        //? inserted.
+        pf_unmount(&sdfile);
+        break;
+      #endif /* SD */
 
 			case 82:
 				//? --- M82 - Set E codes absolute ---
