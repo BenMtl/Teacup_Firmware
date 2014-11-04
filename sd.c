@@ -6,6 +6,8 @@
 
 #ifdef SD
 
+FATFS sdfile;
+
 
 void sd_init(void) {
   WRITE(SD_CARD_SELECT_PIN, 1);
