@@ -69,12 +69,12 @@ void io_init(void) {
 	// disable modules we don't use
 	#ifdef PRR
     PRR = MASK(PRTWI) | MASK(PRADC);
-    #if ! defined TEMP_MAX6675 && ! defined SD_CARD_SELECT_PIN
+    #if ! defined TEMP_MAX6675 && ! defined SD
       PRR |= MASK(PRSPI);
     #endif
 	#elif defined PRR0
     PRR0 = MASK(PRTWI) | MASK(PRADC);
-    #if ! defined TEMP_MAX6675 && ! defined SD_CARD_SELECT_PIN
+    #if ! defined TEMP_MAX6675 && ! defined SD
       PRR0 |= MASK(PRSPI);
     #endif
 		#if defined(PRUSART3)
@@ -187,7 +187,7 @@ void io_init(void) {
 		power_off();
 	#endif
 
-  #if defined TEMP_MAX6675 || defined SD_CARD_SELECT_PIN
+  #if defined TEMP_MAX6675 || defined SD
 		// setup SPI
 		WRITE(SCK, 0);				SET_OUTPUT(SCK);
 		WRITE(MOSI, 1);				SET_OUTPUT(MOSI);
